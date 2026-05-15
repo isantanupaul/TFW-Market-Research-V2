@@ -213,7 +213,7 @@ def flatten_row(data: dict) -> list:
         _j(pr.get("style_preference") or pr.get("categories")),
         _v(pr.get("budget")),
         _v(pr.get("purchase_frequency")),
-        _j(pr.get("influences")),
+        _j(pr.get("influencers") or pr.get("influences")),
 
         # Ratings
         _v(ra.get("variety")),
@@ -233,6 +233,7 @@ def flatten_row(data: dict) -> list:
         _v(ss.get("staff_visible_count")),
         _v(ss.get("customer_attempt")),
         _j(ss.get("staff_was_doing")),
+        # note: staff_behaviour is merged into nh section below
 
         # Staff — Not Helpful
         _j(nh.get("reasons")),
@@ -241,7 +242,7 @@ def flatten_row(data: dict) -> list:
         _j(nh.get("improvement_suggestions")),
 
         # Staff — Self Approached
-        _v(sa.get("staff_response")),
+        _v(sa.get("staff_response") or ""),  # from cyan panel
         _v(sa.get("query_resolved")),
         _v(sa.get("interaction_duration")),
         _j(sa.get("still_no_buy_reason")),

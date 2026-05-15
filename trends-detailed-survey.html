@@ -771,6 +771,16 @@ textarea.field-input{resize:none;line-height:1.55;}
 </div><!-- end shell -->
 
 <script>
+// ── API CONFIG — set this to your Railway URL ──────────────────────────────
+// Example: 'https://tfw-survey-production.up.railway.app'
+// Leave as empty string '' to auto-detect (works when HTML is served by Flask)
+var RAILWAY_URL = '';
+
+function getApiUrl(){
+  if(RAILWAY_URL) return RAILWAY_URL + '/submit';
+  return window.location.origin + '/submit';
+}
+
 // Hide all pages except p0 on load
 ['p1','p1b','p1c','p1d','p2','p3','p4','p5','done'].forEach(function(id){
   var el=document.getElementById(id);
@@ -1069,7 +1079,7 @@ function submitForm(){
       re_engagement:{drivers:state['p5q16']||[],nps:state['p5q17'],open_ended:document.getElementById('p5q18').value},
       meta:{time_minutes:elapsed,xp_earned:xp,timestamp:new Date().toISOString()},
       staff_study:{
-        triggered:document.getElementById('staff-detail-panel').classList.contains('show'),
+        triggered:(state['p1q4']==='no_didnt'||state['p1q4']==='yes_nothelpful'||state['p1q4']==='self_approached'),
         wait_time:timeSelections['wait']||null,
         staff_visible_count:timeSelections['scount']||null,
         customer_attempt:state['staff-attempt']||null,
@@ -1097,27 +1107,28 @@ function submitForm(){
         }
       }
     };
-    console.log('📊 Survey payload:', payload);
+    console.log('📊 Submitting to:', getApiUrl());
 
-    // ── POST to Flask server ──────────────────────────────────────────
-    var API_URL = window.location.origin + '/submit';  // same host as the page
-
-    fetch(API_URL, {
+    // ── POST to Flask / Railway ───────────────────────────────────────
+    fetch(getApiUrl(), {
       method:  'POST',
       headers: {'Content-Type': 'application/json'},
       body:    JSON.stringify(payload)
     })
-    .then(function(res){ return res.json(); })
+    .then(function(res){
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
     .then(function(data){
       if(data.status === 'ok'){
         console.log('✅ Saved to Google Sheets');
       } else {
-        console.warn('⚠️ Server error:', data.message);
+        console.warn('⚠️ Server returned error:', data.message);
       }
     })
     .catch(function(err){
-      console.warn('⚠️ Could not reach server:', err.message);
-      // Survey still shows completion — don't block UX on network error
+      console.error('❌ API call failed:', err.message,
+        '— Check RAILWAY_URL config or server logs');
     });
   },240);
 }

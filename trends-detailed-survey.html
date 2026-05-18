@@ -292,6 +292,7 @@ textarea.field-input{resize:none;line-height:1.55;}
 @keyframes up{from{opacity:0;transform:translateY(28px) scale(.96);}to{opacity:1;transform:none;}}
 @keyframes bi{from{opacity:0;transform:scale(.2) rotate(-12deg);}to{opacity:1;transform:scale(1) rotate(0);}}
 @keyframes couponPop{from{opacity:0;transform:scale(.4) rotate(-8deg);}to{opacity:1;transform:scale(1) rotate(0);}}
+@keyframes couponPulse{0%,100%{opacity:.25;}50%{opacity:.75;}}
 .card.active{animation:up .42s cubic-bezier(.34,1.56,.64,1);}
 
 /* PAGE */
@@ -1153,6 +1154,11 @@ function submitForm(){
     var ft=document.getElementById('ftime');if(ft)ft.textContent=elapsed+'m';
     showEl('done');
     confetti();
+
+    // ── Show scratch card IMMEDIATELY — no waiting for API ────────────────
+    document.getElementById('coupon-box').style.display='block';
+    setTimeout(initScratchCard,60);
+
     const payload={
       customer:{name:document.getElementById('f-name').value,gender:document.getElementById('f-gender').value,age:document.getElementById('f-age').value,phone:document.getElementById('f-phone').value,store:document.getElementById('f-store').value},
       visit:{intent:state['p1q1'],time_spent:state['p1q2'],journey_stage:state['p1q3'],staff_interaction:state['p1q4']},
@@ -1193,7 +1199,7 @@ function submitForm(){
     };
     console.log('📊 Submitting to:', getApiUrl());
 
-    // ── POST to Flask / Railway ───────────────────────────────────────
+    // ── POST to Flask / Railway — runs in background ──────────────────────
     fetch(getApiUrl(), {
       method:  'POST',
       headers: {'Content-Type': 'application/json'},
@@ -1204,24 +1210,50 @@ function submitForm(){
       return res.json();
     })
     .then(function(data){
-      if(data.status === 'ok'){
-        console.log('✅ Saved to Google Sheets');
-        if(data.coupon){
-          document.getElementById('coupon-code').textContent = data.coupon;
-          document.getElementById('coupon-box').style.display = 'block';
-          setTimeout(initScratchCard, 60);
-        } else {
-          document.getElementById('no-coupon-msg').style.display = 'block';
-        }
-      } else {
-        console.warn('⚠️ Server returned error:', data.message);
-      }
+      console.log('✅ Saved to Google Sheets');
+      onCouponReceived(data.status==='ok' ? (data.coupon||null) : null);
     })
     .catch(function(err){
       console.error('❌ API call failed:', err.message,
         '— Check RAILWAY_URL config or server logs');
+      onCouponReceived(null);
     });
   },240);
+}
+
+// ── COUPON STATE — two-promise race ──────────────────────────────────────────
+var _scratchDone=false,_couponReceived=false,_couponCode=null;
+
+function onScratchComplete(){
+  _scratchDone=true;
+  if(_couponReceived){showCouponCode(_couponCode);}
+  else{showCouponLoading();}
+}
+function onCouponReceived(coupon){
+  _couponCode=coupon;_couponReceived=true;
+  if(_scratchDone){showCouponCode(coupon);}
+}
+function showCouponLoading(){
+  var el=document.getElementById('coupon-code');
+  el.textContent='• • •';
+  el.style.fontSize='26px';el.style.letterSpacing='10px';
+  el.style.color='rgba(200,255,62,.55)';
+  el.style.animation='couponPulse 1s ease infinite';
+}
+function showCouponCode(coupon){
+  var el=document.getElementById('coupon-code');
+  el.style.animation='none';
+  el.style.color='#c8ff3e';el.style.fontSize='38px';el.style.letterSpacing='6px';
+  if(coupon){
+    el.textContent=coupon;
+    void el.offsetWidth;
+    el.style.animation='couponPop .65s cubic-bezier(.34,1.56,.64,1)';
+    document.getElementById('copy-btn-wrap').style.display='block';
+  } else {
+    el.textContent='—';
+    var nm=document.getElementById('no-coupon-msg');
+    if(nm){nm.style.display='block';}
+  }
 }
 
 // ── SCRATCH CARD ──
@@ -1243,32 +1275,22 @@ function initScratchCard(){
   ctx.beginPath();
   if(ctx.roundRect){ctx.roundRect(0,0,W,H,12);}else{ctx.rect(0,0,W,H);}
   ctx.fill();
-
-  // Shimmer dots
   for(var i=0;i<40;i++){
     ctx.beginPath();
     ctx.arc(Math.random()*W,Math.random()*H,Math.random()*2.5+0.5,0,Math.PI*2);
     ctx.fillStyle='rgba(255,255,255,'+(Math.random()*.35+.08)+')';
     ctx.fill();
   }
-  // Silver horizontal streaks
   for(var j=0;j<6;j++){
     var y=Math.random()*H;
     var sg=ctx.createLinearGradient(0,y,W,y);
     sg.addColorStop(0,'rgba(255,255,255,0)');
     sg.addColorStop(0.5,'rgba(255,255,255,0.07)');
     sg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.fillStyle=sg;
-    ctx.fillRect(0,y-1,W,2);
+    ctx.fillStyle=sg;ctx.fillRect(0,y-1,W,2);
   }
-
-  // Coin icon
-  ctx.font='22px serif';
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
+  ctx.font='22px serif';ctx.textAlign='center';ctx.textBaseline='middle';
   ctx.fillText('🪙',W/2,H/2-14);
-
-  // Text
   ctx.font='bold 13px Space Grotesk,sans-serif';
   ctx.fillStyle='rgba(255,255,255,.92)';
   ctx.fillText('SCRATCH TO REVEAL',W/2,H/2+8);
@@ -1276,20 +1298,16 @@ function initScratchCard(){
   ctx.fillStyle='rgba(255,255,255,.42)';
   ctx.fillText('your exclusive discount code',W/2,H/2+24);
 
-  // Scratch logic
   var isDown=false,revealed=false,brushR=34;
-
   function getXY(e){
     var r=canvas.getBoundingClientRect();
-    var sx=canvas.width/r.width, sy=canvas.height/r.height;
+    var sx=canvas.width/r.width,sy=canvas.height/r.height;
     var src=e.touches?e.touches[0]:e;
     return{x:(src.clientX-r.left)*sx,y:(src.clientY-r.top)*sy};
   }
   function scratch(x,y){
     ctx.globalCompositeOperation='destination-out';
-    ctx.beginPath();
-    ctx.arc(x,y,brushR,0,Math.PI*2);
-    ctx.fill();
+    ctx.beginPath();ctx.arc(x,y,brushR,0,Math.PI*2);ctx.fill();
     if(!revealed) checkPct();
   }
   function checkPct(){
@@ -1299,20 +1317,15 @@ function initScratchCard(){
   }
   function revealAll(){
     revealed=true;
-    canvas.style.transition='opacity .55s ease';
-    canvas.style.opacity='0';
+    canvas.style.transition='opacity .55s ease';canvas.style.opacity='0';
     var hint=document.getElementById('scratch-hint');
-    if(hint) hint.style.transition='opacity .4s';
-    if(hint) hint.style.opacity='0';
+    if(hint){hint.style.transition='opacity .4s';hint.style.opacity='0';}
     setTimeout(function(){
       canvas.style.display='none';
       if(hint) hint.style.display='none';
-      var el=document.getElementById('coupon-code');
-      el.style.animation='couponPop .65s cubic-bezier(.34,1.56,.64,1)';
-      document.getElementById('copy-btn-wrap').style.display='block';
+      onScratchComplete(); // hand off to the two-promise race
     },560);
   }
-
   canvas.addEventListener('mousedown',function(e){isDown=true;var p=getXY(e);scratch(p.x,p.y);});
   canvas.addEventListener('mousemove',function(e){if(isDown){var p=getXY(e);scratch(p.x,p.y);}});
   window.addEventListener('mouseup',function(){isDown=false;});

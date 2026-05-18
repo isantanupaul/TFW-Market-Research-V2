@@ -291,6 +291,7 @@ textarea.field-input{resize:none;line-height:1.55;}
 /* ANIMATIONS */
 @keyframes up{from{opacity:0;transform:translateY(28px) scale(.96);}to{opacity:1;transform:none;}}
 @keyframes bi{from{opacity:0;transform:scale(.2) rotate(-12deg);}to{opacity:1;transform:scale(1) rotate(0);}}
+@keyframes couponPop{from{opacity:0;transform:scale(.4) rotate(-8deg);}to{opacity:1;transform:scale(1) rotate(0);}}
 .card.active{animation:up .42s cubic-bezier(.34,1.56,.64,1);}
 
 /* PAGE */
@@ -765,30 +766,44 @@ textarea.field-input{resize:none;line-height:1.55;}
   </div>
   <div class="done-pill">✓ Detailed Response Recorded</div>
 
-  <!-- COUPON BOX -->
-  <div id="coupon-box" style="display:none;margin-top:20px;">
+  <!-- COUPON SCRATCH CARD -->
+  <div id="coupon-box" style="display:none;margin-top:24px;">
     <div style="
       background:linear-gradient(135deg,rgba(124,77,255,.18),rgba(192,38,211,.14));
-      border:1.5px dashed rgba(124,77,255,.5);
-      border-radius:16px;padding:20px 24px;text-align:center;
-      box-shadow:0 8px 32px rgba(124,77,255,.15);
+      border:1.5px solid rgba(124,77,255,.3);
+      border-radius:18px;padding:22px 20px;text-align:center;
+      box-shadow:0 8px 32px rgba(124,77,255,.2);
     ">
-      <div style="font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
-        color:rgba(255,255,255,.45);margin-bottom:8px;">🎁 Your Exclusive Coupon</div>
-      <div id="coupon-code" style="
-        font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:5px;
-        color:#c8ff3e;text-shadow:0 0 20px rgba(200,255,62,.4);
-        margin-bottom:10px;
-      ">—</div>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px;">
-        Show this code at the counter to redeem your offer
+      <div style="font-size:10px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+        color:rgba(255,255,255,.4);margin-bottom:16px;">🎁 Your Exclusive Coupon</div>
+
+      <!-- Scratch area: coupon underneath, canvas on top -->
+      <div id="scratch-area" style="position:relative;width:100%;height:88px;margin:0 auto 10px;border-radius:12px;overflow:hidden;">
+        <div id="coupon-code" style="
+          position:absolute;inset:0;
+          display:flex;align-items:center;justify-content:center;
+          font-family:'Bebas Neue',sans-serif;font-size:38px;letter-spacing:6px;
+          color:#c8ff3e;text-shadow:0 0 24px rgba(200,255,62,.5);
+          background:rgba(0,0,0,.25);border-radius:12px;
+        ">—</div>
+        <canvas id="scratch-canvas" style="position:absolute;inset:0;border-radius:12px;cursor:crosshair;touch-action:none;"></canvas>
       </div>
-      <button onclick="copyCoupon()" id="copy-btn" style="
-        background:rgba(124,77,255,.2);border:1px solid rgba(124,77,255,.4);
-        color:#a78bfa;font-family:'Space Grotesk',sans-serif;font-size:12px;
-        font-weight:700;letter-spacing:1px;text-transform:uppercase;
-        padding:9px 22px;border-radius:20px;cursor:pointer;transition:all .2s;
-      ">📋 Copy Code</button>
+
+      <div id="scratch-hint" style="font-size:11px;color:rgba(255,255,255,.38);margin-bottom:4px;">
+        👆 Scratch the card above to reveal your code
+      </div>
+
+      <div id="copy-btn-wrap" style="display:none;margin-top:12px;">
+        <div style="font-size:11px;color:rgba(255,255,255,.35);margin-bottom:12px;">
+          Show this code at the counter to redeem your offer
+        </div>
+        <button onclick="copyCoupon()" id="copy-btn" style="
+          background:rgba(124,77,255,.2);border:1px solid rgba(124,77,255,.4);
+          color:#a78bfa;font-family:'Space Grotesk',sans-serif;font-size:12px;
+          font-weight:700;letter-spacing:1px;text-transform:uppercase;
+          padding:9px 22px;border-radius:20px;cursor:pointer;transition:all .2s;
+        ">📋 Copy Code</button>
+      </div>
     </div>
   </div>
 
@@ -1194,6 +1209,7 @@ function submitForm(){
         if(data.coupon){
           document.getElementById('coupon-code').textContent = data.coupon;
           document.getElementById('coupon-box').style.display = 'block';
+          setTimeout(initScratchCard, 60);
         } else {
           document.getElementById('no-coupon-msg').style.display = 'block';
         }
@@ -1208,23 +1224,110 @@ function submitForm(){
   },240);
 }
 
+// ── SCRATCH CARD ──
+function initScratchCard(){
+  var canvas=document.getElementById('scratch-canvas');
+  if(!canvas)return;
+  var ctx=canvas.getContext('2d');
+  var area=document.getElementById('scratch-area');
+  canvas.width=area.offsetWidth||280;
+  canvas.height=area.offsetHeight||88;
+  var W=canvas.width,H=canvas.height;
+
+  // Draw scratch surface
+  var grad=ctx.createLinearGradient(0,0,W,H);
+  grad.addColorStop(0,'#5b21b6');
+  grad.addColorStop(0.5,'#7c3aed');
+  grad.addColorStop(1,'#4c1d95');
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  if(ctx.roundRect){ctx.roundRect(0,0,W,H,12);}else{ctx.rect(0,0,W,H);}
+  ctx.fill();
+
+  // Shimmer dots
+  for(var i=0;i<40;i++){
+    ctx.beginPath();
+    ctx.arc(Math.random()*W,Math.random()*H,Math.random()*2.5+0.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(255,255,255,'+(Math.random()*.35+.08)+')';
+    ctx.fill();
+  }
+  // Silver horizontal streaks
+  for(var j=0;j<6;j++){
+    var y=Math.random()*H;
+    var sg=ctx.createLinearGradient(0,y,W,y);
+    sg.addColorStop(0,'rgba(255,255,255,0)');
+    sg.addColorStop(0.5,'rgba(255,255,255,0.07)');
+    sg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle=sg;
+    ctx.fillRect(0,y-1,W,2);
+  }
+
+  // Coin icon
+  ctx.font='22px serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText('🪙',W/2,H/2-14);
+
+  // Text
+  ctx.font='bold 13px Space Grotesk,sans-serif';
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  ctx.fillText('SCRATCH TO REVEAL',W/2,H/2+8);
+  ctx.font='10px Space Grotesk,sans-serif';
+  ctx.fillStyle='rgba(255,255,255,.42)';
+  ctx.fillText('your exclusive discount code',W/2,H/2+24);
+
+  // Scratch logic
+  var isDown=false,revealed=false,brushR=34;
+
+  function getXY(e){
+    var r=canvas.getBoundingClientRect();
+    var sx=canvas.width/r.width, sy=canvas.height/r.height;
+    var src=e.touches?e.touches[0]:e;
+    return{x:(src.clientX-r.left)*sx,y:(src.clientY-r.top)*sy};
+  }
+  function scratch(x,y){
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath();
+    ctx.arc(x,y,brushR,0,Math.PI*2);
+    ctx.fill();
+    if(!revealed) checkPct();
+  }
+  function checkPct(){
+    var d=ctx.getImageData(0,0,W,H).data,t=0;
+    for(var i=3;i<d.length;i+=4){if(d[i]<128)t++;}
+    if(t/(W*H)>0.45) revealAll();
+  }
+  function revealAll(){
+    revealed=true;
+    canvas.style.transition='opacity .55s ease';
+    canvas.style.opacity='0';
+    var hint=document.getElementById('scratch-hint');
+    if(hint) hint.style.transition='opacity .4s';
+    if(hint) hint.style.opacity='0';
+    setTimeout(function(){
+      canvas.style.display='none';
+      if(hint) hint.style.display='none';
+      var el=document.getElementById('coupon-code');
+      el.style.animation='couponPop .65s cubic-bezier(.34,1.56,.64,1)';
+      document.getElementById('copy-btn-wrap').style.display='block';
+    },560);
+  }
+
+  canvas.addEventListener('mousedown',function(e){isDown=true;var p=getXY(e);scratch(p.x,p.y);});
+  canvas.addEventListener('mousemove',function(e){if(isDown){var p=getXY(e);scratch(p.x,p.y);}});
+  window.addEventListener('mouseup',function(){isDown=false;});
+  canvas.addEventListener('touchstart',function(e){e.preventDefault();isDown=true;var p=getXY(e);scratch(p.x,p.y);},{passive:false});
+  canvas.addEventListener('touchmove',function(e){e.preventDefault();if(isDown){var p=getXY(e);scratch(p.x,p.y);}},{passive:false});
+  canvas.addEventListener('touchend',function(){isDown=false;});
+}
+
 // ── COPY COUPON ──
 function copyCoupon(){
-  const code = document.getElementById('coupon-code').textContent;
-  navigator.clipboard.writeText(code).then(function(){
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = '✅ Copied!';
-    setTimeout(function(){ btn.textContent = '📋 Copy Code'; }, 2000);
-  }).catch(function(){
-    // fallback for older browsers
-    const ta = document.createElement('textarea');
-    ta.value = code; document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = '✅ Copied!';
-    setTimeout(function(){ btn.textContent = '📋 Copy Code'; }, 2000);
-  });
+  var code=document.getElementById('coupon-code').textContent;
+  var btn=document.getElementById('copy-btn');
+  function flash(){btn.textContent='✅ Copied!';setTimeout(function(){btn.textContent='📋 Copy Code';},2000);}
+  if(navigator.clipboard){navigator.clipboard.writeText(code).then(flash).catch(flash);}
+  else{var ta=document.createElement('textarea');ta.value=code;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);flash();}
 }
 
 // ── CONFETTI ──

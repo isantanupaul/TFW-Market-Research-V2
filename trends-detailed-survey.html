@@ -447,7 +447,7 @@ textarea.field-input{resize:none;line-height:1.55;}
   </div>
   <div class="nav-row">
     <button class="back-btn" onclick="goPage('p1b','p1','back')">← Back</button>
-    <button class="next-btn ready" onclick="goPage('p1b','p2','fwd')">Next →</button>
+    <button class="next-btn" id="p1b-next" onclick="goPage('p1b','p2','fwd')">Next →</button>
   </div>
 </div>
 
@@ -462,7 +462,7 @@ textarea.field-input{resize:none;line-height:1.55;}
   <div class="qblock"><div class="nh-sub-label"><span class="nh-badge">D</span>What would have made this interaction better? <span style="font-size:9px;opacity:.6">(select all)</span></div><div class="chips" id="nh-improve-chips"><div class="chip" style="border-color:rgba(255,160,50,0.18)" onclick="togChip(this,'nh-improve')" data-val="knowledge">More product knowledge</div><div class="chip" style="border-color:rgba(255,160,50,0.18)" onclick="togChip(this,'nh-improve')" data-val="listening">Better listening skills</div><div class="chip" style="border-color:rgba(255,160,50,0.18)" onclick="togChip(this,'nh-improve')" data-val="check_stock">Checking stockroom / other options</div><div class="chip" style="border-color:rgba(255,160,50,0.18)" onclick="togChip(this,'nh-improve')" data-val="attitude">A more positive attitude</div><div class="chip" style="border-color:rgba(255,160,50,0.18)" onclick="togChip(this,'nh-improve')" data-val="more_time">Spending more time with me</div><div class="chip" style="border-color:rgba(255,160,50,0.18)" onclick="togChip(this,'nh-improve')" data-val="escalate">Escalating to a senior staff member</div></div></div>
   <div class="nav-row">
     <button class="back-btn" onclick="goPage('p1c','p1','back')">← Back</button>
-    <button class="next-btn ready" onclick="goPage('p1c','p2','fwd')">Next →</button>
+    <button class="next-btn" id="p1c-next" onclick="goPage('p1c','p2','fwd')">Next →</button>
   </div>
 </div>
 
@@ -477,7 +477,7 @@ textarea.field-input{resize:none;line-height:1.55;}
   <div class="qblock"><div class="qlabel" style="font-size:11px;color:rgba(0,212,255,0.8);margin-bottom:8px"><span style="width:18px;height:18px;border-radius:5px;background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.3);color:var(--blue);font-size:10px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-right:6px;">iv</span>After speaking to staff, why did you still not buy? <span style="font-size:9px;opacity:.6">(pick all)</span></div><div class="chips" id="still-no-buy-chips"><div class="chip" style="border-color:rgba(0,212,255,0.15)" onclick="togChip(this,'still-no-buy')" data-val="no_size">They confirmed my size wasn't available</div><div class="chip" style="border-color:rgba(0,212,255,0.15)" onclick="togChip(this,'still-no-buy')" data-val="no_budget">Couldn't match my budget</div><div class="chip" style="border-color:rgba(0,212,255,0.15)" onclick="togChip(this,'still-no-buy')" data-val="no_stock">Style I wanted wasn't in stock</div><div class="chip" style="border-color:rgba(0,212,255,0.15)" onclick="togChip(this,'still-no-buy')" data-val="bad_info">Their explanation wasn't helpful enough</div><div class="chip" style="border-color:rgba(0,212,255,0.15)" onclick="togChip(this,'still-no-buy')" data-val="changed_mind">I just changed my mind after talking to them</div><div class="chip" style="border-color:rgba(0,212,255,0.15)" onclick="togChip(this,'still-no-buy')" data-val="attitude">Their attitude put me off</div></div></div>
   <div class="nav-row">
     <button class="back-btn" onclick="goPage('p1d','p1','back')">← Back</button>
-    <button class="next-btn ready" onclick="goPage('p1d','p2','fwd')">Next →</button>
+    <button class="next-btn" id="p1d-next" onclick="goPage('p1d','p2','fwd')">Next →</button>
   </div>
 </div>
 
@@ -872,7 +872,7 @@ function solo(el){
   state[q]=el.dataset.val;
   popXP(el);
   // re-check all pages
-  chk1();chkP2();chkP3();chkP4();chkP5();
+  chk1();chkP2();chkP3();chkP4();chkP5();chkP1b();chkP1c();chkP1d();
 
 }
 
@@ -901,7 +901,7 @@ function togChip(el,group){
   const v=el.dataset.val,i=chipGroups[group].indexOf(v);
   if(i===-1)chipGroups[group].push(v);else chipGroups[group].splice(i,1);
   popXP(el);
-  chkP3();chkP4();
+  chkP3();chkP4();chkP1b();chkP1c();chkP1d();chkP5();
 }
 
 // ── OTHER BOX ──
@@ -959,6 +959,7 @@ function togTime(el){
   el.classList.add('sel');
   timeSelections[grp]=el.dataset.val;
   popXP(el);
+  chkP1b();chkP1c();chkP1d();
 }
 
 // ── SHOW/HIDE STAFF PANEL ──
@@ -1032,17 +1033,53 @@ function chkP2(){
   document.getElementById('p2-next').classList.toggle('ready',ok);
 }
 function chkP3(){
-  const ok=!!state['p3q6'];
-  document.getElementById('p3-next').classList.toggle('ready',ok);
+  const ok=!!state['p3q6']
+    &&(document.getElementById('p3q7').value.trim().length>0)
+    &&(chipGroups['comp']&&chipGroups['comp'].length>0)
+    &&(chipGroups['why-alt']&&chipGroups['why-alt'].length>0)
+    &&!!state['p3q10'];
+  document.getElementById('p3-next').classList.toggle('ready',!!ok);
 }
 function chkP4(){
-  const ok=state['p4q13'];
+  const ok=!!state['p4q13']
+    &&(chipGroups['style-pref']&&chipGroups['style-pref'].length>0)
+    &&(chipGroups['influence']&&chipGroups['influence'].length>0);
   const btn=document.getElementById('p4-next');
   if(btn) btn.classList.toggle('ready',!!ok);
 }
 function chkP5(){
-  const ok=state['p5q16']&&state['p5q16'].length>0;
+  const cats=['variety','pricing','ambiance','staff','size_avail','overall'];
+  const allStars=cats.every(c=>starRatings[c]&&starRatings[c]>0);
+  const ok=(state['p5q16']&&state['p5q16'].length>0)
+    &&allStars
+    &&!!state['p5q17']
+    &&(document.getElementById('p5q18').value.trim().length>0);
   document.getElementById('p5-next').classList.toggle('ready',!!ok);
+}
+
+// ── STAFF SUB-PAGE VALIDATORS ──
+function chkP1b(){
+  const ok=!!timeSelections['wait']
+    &&!!timeSelections['scount']
+    &&!!state['staff-attempt'];
+  const btn=document.getElementById('p1b-next');
+  if(btn) btn.classList.toggle('ready',!!ok);
+}
+function chkP1c(){
+  const ok=(chipGroups['nh-reason']&&chipGroups['nh-reason'].length>0)
+    &&!!timeSelections['nh-dur']
+    &&!!state['nh-alternatives']
+    &&(chipGroups['nh-improve']&&chipGroups['nh-improve'].length>0);
+  const btn=document.getElementById('p1c-next');
+  if(btn) btn.classList.toggle('ready',!!ok);
+}
+function chkP1d(){
+  const ok=!!state['staff-response-type']
+    &&!!state['staff-resolve']
+    &&!!timeSelections['idur']
+    &&(chipGroups['still-no-buy']&&chipGroups['still-no-buy'].length>0);
+  const btn=document.getElementById('p1d-next');
+  if(btn) btn.classList.toggle('ready',!!ok);
 }
 
 // ── XP POP ──

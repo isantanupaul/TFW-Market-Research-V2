@@ -26,6 +26,7 @@ CORS(app)
 SPREADSHEET_ID    = os.environ.get("SPREADSHEET_ID", "")
 GOOGLE_CREDS_JSON = os.environ.get("GOOGLE_CREDENTIALS_JSON", "")
 SURVEY_TAB        = "Survey Responses"
+VC_TAB            = "VC"
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -249,6 +250,47 @@ def flatten_row(data: dict) -> list:
     ]
 
 
+# ── Coupon logic ───────────────────────────────────────────────────────────────
+def get_or_assign_coupon(spreadsheet, phone: str):
+    """
+    VC tab layout:  col A = CouponCode  |  col B = Phone
+    Row 1 is the header row — always skipped.
+
+    Logic:
+      1. If this phone already appears in col B  → return the coupon in col A (same row)
+      2. Else find the first row where col B is empty → write phone there → return coupon
+      3. No unused coupons left → return None
+    """
+    try:
+        vc = spreadsheet.worksheet(VC_TAB)
+        rows = vc.get_all_values()          # list of [coupon, phone] lists
+
+        phone = str(phone).strip()
+
+        # Pass 1 — phone already assigned?
+        for idx, row in enumerate(rows[1:], start=2):   # idx = actual sheet row number
+            existing_phone = row[1].strip() if len(row) >= 2 else ""
+            if existing_phone == phone:
+                print(f"  🎟️  Existing coupon for {phone}: {row[0]}", flush=True)
+                return row[0]
+
+        # Pass 2 — assign first unused coupon
+        for idx, row in enumerate(rows[1:], start=2):
+            coupon_code  = row[0].strip() if len(row) >= 1 else ""
+            phone_in_row = row[1].strip() if len(row) >= 2 else ""
+            if coupon_code and not phone_in_row:
+                vc.update_cell(idx, 2, phone)           # write phone into col B
+                print(f"  🎟️  New coupon assigned to {phone}: {coupon_code}", flush=True)
+                return coupon_code
+
+        print(f"  ⚠️  No unused coupons left for {phone}", flush=True)
+        return None
+
+    except Exception as exc:
+        print(f"  ⚠️  Coupon error: {exc}", file=sys.stderr, flush=True)
+        return None
+
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 @app.route("/")
 def serve_survey():
@@ -274,10 +316,14 @@ def submit():
 
         name  = payload.get("customer", {}).get("name", "unknown")
         store = payload.get("customer", {}).get("store", "")
+        phone = payload.get("customer", {}).get("phone", "")
         ts    = payload.get("meta", {}).get("timestamp", "")[:19]
         print(f"  ✅ Saved: {name} | {store} | {ts}", flush=True)
 
-        return jsonify({"status": "ok", "message": "Response saved"})
+        # ── Coupon lookup / assignment ─────────────────────────────────────
+        coupon = get_or_assign_coupon(ss, phone)
+
+        return jsonify({"status": "ok", "message": "Response saved", "coupon": coupon})
 
     except Exception as exc:
         print(f"  ❌ /submit error: {exc}", file=sys.stderr, flush=True)

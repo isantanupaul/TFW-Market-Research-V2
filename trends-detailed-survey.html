@@ -764,6 +764,38 @@ textarea.field-input{resize:none;line-height:1.55;}
     <div class="si"><div class="sn" id="ftime">—</div><div class="sl">Minutes</div></div>
   </div>
   <div class="done-pill">✓ Detailed Response Recorded</div>
+
+  <!-- COUPON BOX -->
+  <div id="coupon-box" style="display:none;margin-top:20px;">
+    <div style="
+      background:linear-gradient(135deg,rgba(124,77,255,.18),rgba(192,38,211,.14));
+      border:1.5px dashed rgba(124,77,255,.5);
+      border-radius:16px;padding:20px 24px;text-align:center;
+      box-shadow:0 8px 32px rgba(124,77,255,.15);
+    ">
+      <div style="font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+        color:rgba(255,255,255,.45);margin-bottom:8px;">🎁 Your Exclusive Coupon</div>
+      <div id="coupon-code" style="
+        font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:5px;
+        color:#c8ff3e;text-shadow:0 0 20px rgba(200,255,62,.4);
+        margin-bottom:10px;
+      ">—</div>
+      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:14px;">
+        Show this code at the counter to redeem your offer
+      </div>
+      <button onclick="copyCoupon()" id="copy-btn" style="
+        background:rgba(124,77,255,.2);border:1px solid rgba(124,77,255,.4);
+        color:#a78bfa;font-family:'Space Grotesk',sans-serif;font-size:12px;
+        font-weight:700;letter-spacing:1px;text-transform:uppercase;
+        padding:9px 22px;border-radius:20px;cursor:pointer;transition:all .2s;
+      ">📋 Copy Code</button>
+    </div>
+  </div>
+
+  <div id="no-coupon-msg" style="display:none;margin-top:16px;font-size:12px;
+    color:rgba(255,255,255,.35);text-align:center;">
+    No coupons available at this time
+  </div>
 </div>
 
 <div class="streak" id="streak-bar" style="display:none">🔥 &nbsp;<span class="hl" id="sc">1</span> / 6 sections done</div>
@@ -1159,6 +1191,12 @@ function submitForm(){
     .then(function(data){
       if(data.status === 'ok'){
         console.log('✅ Saved to Google Sheets');
+        if(data.coupon){
+          document.getElementById('coupon-code').textContent = data.coupon;
+          document.getElementById('coupon-box').style.display = 'block';
+        } else {
+          document.getElementById('no-coupon-msg').style.display = 'block';
+        }
       } else {
         console.warn('⚠️ Server returned error:', data.message);
       }
@@ -1168,6 +1206,25 @@ function submitForm(){
         '— Check RAILWAY_URL config or server logs');
     });
   },240);
+}
+
+// ── COPY COUPON ──
+function copyCoupon(){
+  const code = document.getElementById('coupon-code').textContent;
+  navigator.clipboard.writeText(code).then(function(){
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(function(){ btn.textContent = '📋 Copy Code'; }, 2000);
+  }).catch(function(){
+    // fallback for older browsers
+    const ta = document.createElement('textarea');
+    ta.value = code; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ Copied!';
+    setTimeout(function(){ btn.textContent = '📋 Copy Code'; }, 2000);
+  });
 }
 
 // ── CONFETTI ──
